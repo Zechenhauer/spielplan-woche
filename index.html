@@ -52,7 +52,7 @@
         }
         header {
             text-align: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         h1 {
             font-size: 1.5rem;
@@ -67,7 +67,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             background: var(--card-bg);
             padding: 10px 15px;
             border-radius: 8px;
@@ -91,6 +91,46 @@
         .refresh-btn:hover {
             background-color: var(--accent-hover);
         }
+        
+        /* Filter-Leiste (horizontal scrollbar für Smartphone) */
+        .filter-container {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) transparent;
+        }
+        .filter-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        .filter-container::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        .filter-btn {
+            background-color: var(--card-bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            border-radius: 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            color: var(--text-color);
+            border-color: var(--accent-color);
+        }
+        .filter-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            font-weight: bold;
+        }
+
         #loading {
             text-align: center;
             color: var(--text-muted);
@@ -188,6 +228,11 @@
         <button class="refresh-btn" onclick="loadWeeklyMatches(true)">Aktualisieren 🔄</button>
     </div>
 
+    <!-- Filter-Leiste für Ligen -->
+    <div class="filter-container" id="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('ALL')">🌐 Alle Ligen</button>
+    </div>
+
     <div id="loading">Lade Spiele der nächsten 7 Tage... Bitte warten. ⏳</div>
     <div id="matches-container"></div>
 </div>
@@ -217,6 +262,9 @@
         "Union Berlin", "Freiburg", "Wolfsburg", "Hoffenheim", "Heidenheim"
     ];
 
+    let cachedMatches = [];
+    let currentFilter = 'ALL';
+
     const today = new Date();
     const fromDateStr = today.toISOString().split('T')[0];
     
@@ -240,14 +288,32 @@
         return GERMAN_TEAMS.some(germanTeam => teamName.toLowerCase().includes(germanTeam.toLowerCase()));
     }
 
+    // Filter-Buttons dynamisch aufbauen
+    function buildFilterButtons() {
+        const filterBar = document.getElementById('filter-bar');
+        let html = `<button class="filter-btn ${currentFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL')">🌐 Alle Ligen</button>`;
+        
+        LEAGUES.forEach(l => {
+            html += `<button class="filter-btn ${currentFilter === l.name ? 'active' : ''}" onclick="setFilter('${l.name}')">${l.name}</button>`;
+        });
+        filterBar.innerHTML = html;
+    }
+
+    function setFilter(leagueName) {
+        currentFilter = leagueName;
+        buildFilterButtons();
+        renderMatches(cachedMatches);
+    }
+
     function initApp() {
-        const cachedData = localStorage.getItem('football_weekly_cache');
+        buildFilterButtons();
+        const storedData = localStorage.getItem('football_weekly_cache');
         const cachedTime = localStorage.getItem('football_weekly_time');
         
-        if (cachedData && cachedTime) {
-            const matches = JSON.parse(cachedData);
+        if (storedData && cachedTime) {
+            cachedMatches = JSON.parse(storedData);
             document.getElementById('cache-status').innerText = `Stand: ${cachedTime} (aus Speicher)`;
-            renderMatches(matches);
+            renderMatches(cachedMatches);
         } else {
             loadWeeklyMatches(false);
         }
@@ -280,7 +346,6 @@
                             if (matchTimestamp >= nowTimestamp) {
                                 let matchClass = league.styleKey || '';
                                 
-                                // Internationale Spiele mit deutscher Beteiligung prüfen (erhalten Blauton)
                                 if (!matchClass && !league.isGerman) {
                                     if (isGermanTeam(match.teams.home.name) || isGermanTeam(match.teams.away.name)) {
                                         matchClass = 'german-team';
@@ -307,13 +372,14 @@
             }
 
             allMatches.sort((a, b) => a.timestamp - b.timestamp);
+            cachedMatches = allMatches;
 
             const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
             localStorage.setItem('football_weekly_cache', JSON.stringify(allMatches));
             localStorage.setItem('football_weekly_time', nowTimeStr);
             
             document.getElementById('cache-status').innerText = `Stand: ${nowTimeStr} (Aktualisiert)`;
-            renderMatches(allMatches);
+            renderMatches(cachedMatches);
 
         } catch (error) {
             console.error("Fehler beim Laden:", error);
@@ -325,13 +391,20 @@
 
     function renderMatches(matches) {
         const container = document.getElementById('matches-container');
-        if (matches.length === 0) {
-            container.innerHTML = '<div class="no-matches">Keine kommenden Spiele in den nächsten 7 Tagen in deinen Ligen gefunden.</div>';
+        
+        // Nach Filter filtern
+        let filteredMatches = matches;
+        if (currentFilter !== 'ALL') {
+            filteredMatches = matches.filter(m => m.leagueName === currentFilter);
+        }
+
+        if (filteredMatches.length === 0) {
+            container.innerHTML = '<div class="no-matches">Keine Spiele für diesen Filter in den nächsten 7 Tagen gefunden.</div>';
             return;
         }
 
         const grouped = {};
-        matches.forEach(m => {
+        filteredMatches.forEach(m => {
             if (!grouped[m.date]) grouped[m.date] = [];
             grouped[m.date].push(m);
         });
