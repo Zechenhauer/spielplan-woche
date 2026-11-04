@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7-Tage-Vorschau - Alle Ligen</title>
+    
+    <!-- Einstellungen für den Startbildschirm auf dem Smartphone -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="7-Tage-Vorschau">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Generiertes Kalender-Icon als Inline-Data-URI (erspart eine extra Bilddatei) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e293b'/><rect x='10' y='25' width='80' height='65' rx='10' fill='%233b82f6'/><path d='M10 35h80v15H10z' fill='%231e293b'/><circle cx='30' cy='18' r='6' fill='%2394a3b8'/><circle cx='70' cy='18' r='6' fill='%2394a3b8'/><text x='50' y='75' font-size='40' font-weight='bold' fill='white' text-anchor='middle'>📅</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e293b'/><rect x='10' y='25' width='80' height='65' rx='10' fill='%233b82f6'/><text x='50' y='75' font-size='40' font-weight='bold' fill='white' text-anchor='middle'>📅</text></svg>">
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --border-color: #334155;
+            --german-highlight: rgba(59, 130, 246, 0.15);
+            --german-border: #3b82f6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+        button:disabled {
+            background-color: var(--border-color);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        #loading {
+            text-align: center;
+            color: var(--text-muted);
+            margin: 20px 0;
+            display: none;
+        }
+        .day-group {
+            margin-bottom: 25px;
+        }
+        .day-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            background-color: var(--card-bg);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--accent-color);
+        }
+        .match-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+        .match-card.german-team {
+            background-color: var(--german-highlight);
+            border-left: 3px solid var(--german-border);
+        }
+        .league-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .teams {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .team img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        .match-time {
+            font-weight: bold;
+            color: #ffffff;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .no-matches {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>⚽ 7-Tage-Vorschau</h1>
+        <p class="subtitle" id="date-range-label">Lade Zeitraum...</p>
+    </header>
+
+    <div class="controls">
+        <button id="load-btn" onclick="loadWeeklyMatches()">Wochen-Vorschau laden</button>
+    </div>
+
+    <div id="loading">Lade Spiele aller Ligen... Bitte warten.</div>
+    <div id="matches-container"></div>
+</div>
+
+<script>
+    const API_KEY = "297322363f3bf16e1304cfb933a0c8d5";
+    const SEASON = "2026";
+    
+    const LEAGUES = [
+        { id: 78, name: "1. Bundesliga", isGerman: true },
+        { id: 79, name: "2. Bundesliga", isGerman: true },
+        { id: 80, name: "3. Liga", isGerman: true },
+        { id: 2,  name: "Champions League", isGerman: false },
+        { id: 3,  name: "Europa League", isGerman: false },
+        { id: 848, name: "Conference League", isGerman: false },
+        { id: 140, name: "La Liga", isGerman: false },
+        { id: 135, name: "Serie A", isGerman: false },
+        { id: 39, name: "Premier League", isGerman: false },
+        { id: 61, name: "Ligue 1", isGerman: false }
+    ];
+
+    const GERMAN_TEAMS = [
+        "Bayern Munich", "Borussia Dortmund", "Bayer Leverkusen", 
+        "RB Leipzig", "Eintracht Frankfurt", "VfB Stuttgart", 
+        "Union Berlin", "Freiburg", "Wolfsburg", "Hoffenheim", "Heidenheim"
+    ];
+
+    const today = new Date();
+    const fromDateStr = today.toISOString().split('T')[0];
+    
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + 7);
+    const toDateStr = futureDate.toISOString().split('T')[0];
+
+    document.getElementById('date-range-label').innerText = `Zeitraum: ${formatDateReadable(fromDateStr)} bis ${formatDateReadable(toDateStr)}`;
+
+    function formatDateReadable(dateStr) {
+        const parts = dateStr.split('-');
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    function getWeekday(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('de-DE', { weekday: 'long' });
+    }
+
+    function isGermanTeam(teamName) {
+        return GERMAN_TEAMS.some(germanTeam => teamName.toLowerCase().includes(germanTeam.toLowerCase()));
+    }
+
+    async function loadWeeklyMatches() {
+        const btn = document.getElementById('load-btn');
+        const loading = document.getElementById('loading');
+        const container = document.getElementById('matches-container');
+
+        btn.disabled = true;
+        loading.style.display = 'block';
+        container.innerHTML = '';
+
+        let allMatches = [];
+        const nowTimestamp = new Date().getTime();
+
+        try {
+            for (const league of LEAGUES) {
+                const url = `https://v3.football.api-sports.io/fixtures?league=${league.id}&season=${SEASON}&from=${fromDateStr}&to=${toDateStr}`;
+                
+                try {
+                    const response = labelFetch = await fetch(url, {
+                        headers: { "x-apisports-key": API_KEY }
+                    });
+                    const data = await response.json();
+
+                    if (data.response && Array.isArray(data.response)) {
+                        data.response.forEach(match => {
+                            const matchTimestamp = new Date(match.fixture.date).getTime();
+                            
+                            if (matchTimestamp >= nowTimestamp) {
+                                let isGermanMatch = league.isGerman;
+                                
+                                if (!isGermanMatch) {
+                                    if (isGermanTeam(match.teams.home.name) || isGermanTeam(match.teams.away.name)) {
+                                        isGermanMatch = true;
+                                    }
+                                }
+
+                                allMatches.push({
+                                    leagueName: league.name,
+                                    date: match.fixture.date.split('T')[0],
+                                    time: new Date(match.fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    homeTeam: match.teams.home.name,
+                                    homeLogo: match.teams.home.logo,
+                                    awayTeam: match.teams.away.name,
+                                    awayLogo: match.teams.away.logo,
+                                    timestamp: matchTimestamp,
+                                    isGerman: isGermanMatch
+                                });
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Fehler bei Liga ${league.name}:`, err);
+                }
+            }
+
+            allMatches.sort((a, b) => a.timestamp - b.timestamp);
+            renderMatches(allMatches);
+
+        } catch (error) {
+            console.error("Fehler beim Laden:", error);
+            container.innerHTML = '<div class="no-matches">Fehler beim Laden der Daten.</div>';
+        } finally {
+            btn.disabled = false;
+            loading.style.display = 'none';
+        }
+    }
+
+    function renderMatches(matches) {
+        const container = document.getElementById('matches-container');
+        if (matches.length === 0) {
+            container.innerHTML = '<div class="no-matches">Keine kommenden Spiele in den nächsten 7 Tagen in deinen Ligen gefunden.</div>';
+            return;
+        }
+
+        const grouped = {};
+        matches.forEach(m => {
+            if (!grouped[m.date]) grouped[m.date] = [];
+            grouped[m.date].push(m);
+        });
+
+        let html = '';
+        for (const [date, dayMatches] of Object.entries(grouped)) {
+            const weekday = getWeekday(date);
+            html += `<div class="day-group">
+                <div class="day-header">📅 ${weekday}, ${formatDateReadable(date)} (${dayMatches.length} Spiele)</div>`;
+            
+            dayMatches.forEach(m => {
+                const germanClass = m.isGerman ? 'german-team' : '';
+                html += `
+                    <div class="match-card ${germanClass}">
+                        <div>
+                            <div class="league-name">${m.leagueName}</div>
+                            <div class="teams">
+                                <span class="team"><img src="${m.homeLogo}" alt="">${m.homeTeam}</span>
+                                <span style="color: var(--text-muted); margin: 0 5px;">vs</span>
+                                <span class="team"><img src="${m.awayLogo}" alt="">${m.awayTeam}</span>
+                            </div>
+                        </div>
+                        <div class="match-time">${m.time} Uhr</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
+    }
+</script>
+
+</body>
+</html>
