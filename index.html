@@ -24,7 +24,18 @@
             --accent-color: #3b82f6;
             --accent-hover: #2563eb;
             --border-color: #334155;
-            --german-highlight: rgba(59, 130, 246, 0.15);
+            
+            /* Individuelle Farben für deine Wunsch-Ligen */
+            --highlight-oberliga: rgba(234, 179, 8, 0.18);    /* Gelb */
+            --border-oberliga: #eab308;
+            
+            --highlight-bundesliga: rgba(249, 115, 22, 0.18); /* Dezentes Orange */
+            --border-bundesliga: #f97316;
+            
+            --highlight-3liga: rgba(34, 197, 94, 0.18);       /* Grün */
+            --border-3liga: #22c55e;
+
+            --german-highlight: rgba(59, 130, 246, 0.15);     /* Blau für andere deutsche Teams / DFB-Pokal */
             --german-border: #3b82f6;
         }
         body {
@@ -110,10 +121,25 @@
             align-items: center;
             font-size: 0.95rem;
         }
+        
+        /* Farb-Klassen für die speziellen Ligen */
+        .match-card.highlight-oberliga {
+            background-color: var(--highlight-oberliga);
+            border-left: 4px solid var(--border-oberliga);
+        }
+        .match-card.highlight-bundesliga {
+            background-color: var(--highlight-bundesliga);
+            border-left: 4px solid var(--border-bundesliga);
+        }
+        .match-card.highlight-3liga {
+            background-color: var(--highlight-3liga);
+            border-left: 4px solid var(--border-3liga);
+        }
         .match-card.german-team {
             background-color: var(--german-highlight);
             border-left: 3px solid var(--german-border);
         }
+
         .league-name {
             font-size: 0.75rem;
             color: var(--text-muted);
@@ -170,13 +196,12 @@
     const API_KEY = "297322363f3bf16e1304cfb933a0c8d5";
     const SEASON = "2026";
     
-    // Alle Ligen inklusive DFB-Pokal und Oberliga Niederrhein (ID 751)
     const LEAGUES = [
-        { id: 78, name: "1. Bundesliga", isGerman: true },
+        { id: 78, name: "1. Bundesliga", isGerman: true, styleKey: "highlight-bundesliga" },
         { id: 79, name: "2. Bundesliga", isGerman: true },
-        { id: 80, name: "3. Liga", isGerman: true },
+        { id: 80, name: "3. Liga", isGerman: true, styleKey: "highlight-3liga" },
         { id: 81, name: "DFB-Pokal", isGerman: true },
-        { id: 751, name: "Oberliga Niederrhein", isGerman: true },
+        { id: 751, name: "Oberliga Niederrhein", isGerman: true, styleKey: "highlight-oberliga" },
         { id: 2,  name: "Champions League", isGerman: false },
         { id: 3,  name: "Europa League", isGerman: false },
         { id: 848, name: "Conference League", isGerman: false },
@@ -253,11 +278,12 @@
                             const matchTimestamp = new Date(match.fixture.date).getTime();
                             
                             if (matchTimestamp >= nowTimestamp) {
-                                let isGermanMatch = league.isGerman;
+                                let matchClass = league.styleKey || '';
                                 
-                                if (!isGermanMatch) {
+                                // Internationale Spiele mit deutscher Beteiligung prüfen (erhalten Blauton)
+                                if (!matchClass && !league.isGerman) {
                                     if (isGermanTeam(match.teams.home.name) || isGermanTeam(match.teams.away.name)) {
-                                        isGermanMatch = true;
+                                        matchClass = 'german-team';
                                     }
                                 }
 
@@ -270,7 +296,7 @@
                                     awayTeam: match.teams.away.name,
                                     awayLogo: match.teams.away.logo,
                                     timestamp: matchTimestamp,
-                                    isGerman: isGermanMatch
+                                    matchClass: matchClass
                                 });
                             }
                         });
@@ -317,9 +343,8 @@
                 <div class="day-header">📅 ${weekday}, ${formatDateReadable(date)} (${dayMatches.length} Spiele)</div>`;
             
             dayMatches.forEach(m => {
-                const germanClass = m.isGerman ? 'german-team' : '';
                 html += `
-                    <div class="match-card ${germanClass}">
+                    <div class="match-card ${m.matchClass}">
                         <div>
                             <div class="league-name">${m.leagueName}</div>
                             <div class="teams">
