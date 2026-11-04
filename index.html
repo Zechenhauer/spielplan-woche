@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7-Tage-Vorschau - Alle Ligen</title>
+    
+    <!-- Einstellungen für den Startbildschirm auf dem Smartphone -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="7-Tage-Vorschau">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Kalender-Icon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e293b'/><rect x='10' y='25' width='80' height='65' rx='10' fill='%233b82f6'/><path d='M10 35h80v15H10z' fill='%231e293b'/><circle cx='30' cy='18' r='6' fill='%2394a3b8'/><circle cx='70' cy='18' r='6' fill='%2394a3b8'/><text x='50' y='75' font-size='40' font-weight='bold' fill='white' text-anchor='middle'>📅</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e293b'/><rect x='10' y='25' width='80' height='65' rx='10' fill='%233b82f6'/><text x='50' y='75' font-size='40' font-weight='bold' fill='white' text-anchor='middle'>📅</text></svg>">
+
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --border-color: #334155;
+            
+            /* Individuelle Farben für deine Wunsch-Ligen */
+            --highlight-oberliga: rgba(234, 179, 8, 0.18);    /* Gelb */
+            --border-oberliga: #eab308;
+            
+            --highlight-bundesliga: rgba(249, 115, 22, 0.18); /* Dezentes Orange */
+            --border-bundesliga: #f97316;
+            
+            --highlight-3liga: rgba(34, 197, 94, 0.18);       /* Grün */
+            --border-3liga: #22c55e;
+
+            --german-highlight: rgba(59, 130, 246, 0.15);     /* Blau für andere deutsche Teams / DFB-Pokal */
+            --german-border: #3b82f6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            background: var(--card-bg);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .status-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .refresh-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .refresh-btn:hover {
+            background-color: var(--accent-hover);
+        }
+        
+        /* Filter-Leiste (horizontal scrollbar für Smartphone) */
+        .filter-container {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) transparent;
+        }
+        .filter-container::-webkit-scrollbar {
+            height: 4px;
+        }
+        .filter-container::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        .filter-btn {
+            background-color: var(--card-bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            border-radius: 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover {
+            color: var(--text-color);
+            border-color: var(--accent-color);
+        }
+        .filter-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        #loading {
+            text-align: center;
+            color: var(--text-muted);
+            margin: 40px 0;
+            font-size: 1.1rem;
+            display: none;
+        }
+        .day-group {
+            margin-bottom: 25px;
+        }
+        .day-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            background-color: var(--card-bg);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--accent-color);
+        }
+        .match-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+        
+        /* Farb-Klassen für die speziellen Ligen */
+        .match-card.highlight-oberliga {
+            background-color: var(--highlight-oberliga);
+            border-left: 4px solid var(--border-oberliga);
+        }
+        .match-card.highlight-bundesliga {
+            background-color: var(--highlight-bundesliga);
+            border-left: 4px solid var(--border-bundesliga);
+        }
+        .match-card.highlight-3liga {
+            background-color: var(--highlight-3liga);
+            border-left: 4px solid var(--border-3liga);
+        }
+        .match-card.german-team {
+            background-color: var(--german-highlight);
+            border-left: 3px solid var(--german-border);
+        }
+
+        .league-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .teams {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .team img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        .match-time {
+            font-weight: bold;
+            color: #ffffff;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .no-matches {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px;
+        }
+    </style>
+</head>
+<body onload="initApp()">
+
+<div class="container">
+    <header>
+        <h1>⚽ 7-Tage-Vorschau</h1>
+        <p class="subtitle" id="date-range-label">Lade Zeitraum...</p>
+    </header>
+
+    <div class="top-bar">
+        <div class="status-info" id="cache-status">Status: Prüfe Speicher...</div>
+        <button class="refresh-btn" onclick="loadWeeklyMatches(true)">Aktualisieren 🔄</button>
+    </div>
+
+    <!-- Filter-Leiste für Ligen -->
+    <div class="filter-container" id="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('ALL')">🌐 Alle Ligen</button>
+    </div>
+
+    <div id="loading">Lade Spiele der nächsten 7 Tage... Bitte warten. ⏳</div>
+    <div id="matches-container"></div>
+</div>
+
+<script>
+    const API_KEY = "297322363f3bf16e1304cfb933a0c8d5";
+    const SEASON = "2026";
+    
+    const LEAGUES = [
+        { id: 78, name: "1. Bundesliga", isGerman: true, styleKey: "highlight-bundesliga" },
+        { id: 79, name: "2. Bundesliga", isGerman: true },
+        { id: 80, name: "3. Liga", isGerman: true, styleKey: "highlight-3liga" },
+        { id: 81, name: "DFB-Pokal", isGerman: true },
+        { id: 751, name: "Oberliga Niederrhein", isGerman: true, styleKey: "highlight-oberliga" },
+        { id: 2,  name: "Champions League", isGerman: false },
+        { id: 3,  name: "Europa League", isGerman: false },
+        { id: 848, name: "Conference League", isGerman: false },
+        { id: 140, name: "La Liga", isGerman: false },
+        { id: 135, name: "Serie A", isGerman: false },
+        { id: 39, name: "Premier League", isGerman: false },
+        { id: 61, name: "Ligue 1", isGerman: false }
+    ];
+
+    const GERMAN_TEAMS = [
+        "Bayern Munich", "Borussia Dortmund", "Bayer Leverkusen", 
+        "RB Leipzig", "Eintracht Frankfurt", "VfB Stuttgart", 
+        "Union Berlin", "Freiburg", "Wolfsburg", "Hoffenheim", "Heidenheim"
+    ];
+
+    let cachedMatches = [];
+    let currentFilter = 'ALL';
+
+    const today = new Date();
+    const fromDateStr = today.toISOString().split('T')[0];
+    
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + 7);
+    const toDateStr = futureDate.toISOString().split('T')[0];
+
+    document.getElementById('date-range-label').innerText = `Zeitraum: ${formatDateReadable(fromDateStr)} bis ${formatDateReadable(toDateStr)}`;
+
+    function formatDateReadable(dateStr) {
+        const parts = dateStr.split('-');
+        return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    }
+
+    function getWeekday(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('de-DE', { weekday: 'long' });
+    }
+
+    function isGermanTeam(teamName) {
+        return GERMAN_TEAMS.some(germanTeam => teamName.toLowerCase().includes(germanTeam.toLowerCase()));
+    }
+
+    // Filter-Buttons dynamisch aufbauen
+    function buildFilterButtons() {
+        const filterBar = document.getElementById('filter-bar');
+        let html = `<button class="filter-btn ${currentFilter === 'ALL' ? 'active' : ''}" onclick="setFilter('ALL')">🌐 Alle Ligen</button>`;
+        
+        LEAGUES.forEach(l => {
+            html += `<button class="filter-btn ${currentFilter === l.name ? 'active' : ''}" onclick="setFilter('${l.name}')">${l.name}</button>`;
+        });
+        filterBar.innerHTML = html;
+    }
+
+    function setFilter(leagueName) {
+        currentFilter = leagueName;
+        buildFilterButtons();
+        renderMatches(cachedMatches);
+    }
+
+    function initApp() {
+        buildFilterButtons();
+        const storedData = localStorage.getItem('football_weekly_cache');
+        const cachedTime = localStorage.getItem('football_weekly_time');
+        
+        if (storedData && cachedTime) {
+            cachedMatches = JSON.parse(storedData);
+            document.getElementById('cache-status').innerText = `Stand: ${cachedTime} (aus Speicher)`;
+            renderMatches(cachedMatches);
+        } else {
+            loadWeeklyMatches(false);
+        }
+    }
+
+    async function loadWeeklyMatches(forced = false) {
+        const loading = document.getElementById('loading');
+        const container = document.getElementById('matches-container');
+
+        loading.style.display = 'block';
+        if (forced) container.innerHTML = '';
+
+        let allMatches = [];
+        const nowTimestamp = new Date().getTime();
+
+        try {
+            for (const league of LEAGUES) {
+                const url = `https://v3.football.api-sports.io/fixtures?league=${league.id}&season=${SEASON}&from=${fromDateStr}&to=${toDateStr}`;
+                
+                try {
+                    const response = await fetch(url, {
+                        headers: { "x-apisports-key": API_KEY }
+                    });
+                    const data = await response.json();
+
+                    if (data.response && Array.isArray(data.response)) {
+                        data.response.forEach(match => {
+                            const matchTimestamp = new Date(match.fixture.date).getTime();
+                            
+                            if (matchTimestamp >= nowTimestamp) {
+                                let matchClass = league.styleKey || '';
+                                
+                                if (!matchClass && !league.isGerman) {
+                                    if (isGermanTeam(match.teams.home.name) || isGermanTeam(match.teams.away.name)) {
+                                        matchClass = 'german-team';
+                                    }
+                                }
+
+                                allMatches.push({
+                                    leagueName: league.name,
+                                    date: match.fixture.date.split('T')[0],
+                                    time: new Date(match.fixture.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                                    homeTeam: match.teams.home.name,
+                                    homeLogo: match.teams.home.logo,
+                                    awayTeam: match.teams.away.name,
+                                    awayLogo: match.teams.away.logo,
+                                    timestamp: matchTimestamp,
+                                    matchClass: matchClass
+                                });
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Fehler bei Liga ${league.name}:`, err);
+                }
+            }
+
+            allMatches.sort((a, b) => a.timestamp - b.timestamp);
+            cachedMatches = allMatches;
+
+            const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+            localStorage.setItem('football_weekly_cache', JSON.stringify(allMatches));
+            localStorage.setItem('football_weekly_time', nowTimeStr);
+            
+            document.getElementById('cache-status').innerText = `Stand: ${nowTimeStr} (Aktualisiert)`;
+            renderMatches(cachedMatches);
+
+        } catch (error) {
+            console.error("Fehler beim Laden:", error);
+            container.innerHTML = '<div class="no-matches">Fehler beim Laden der Daten.</div>';
+        } finally {
+            loading.style.display = 'none';
+        }
+    }
+
+    function renderMatches(matches) {
+        const container = document.getElementById('matches-container');
+        
+        // Nach Filter filtern
+        let filteredMatches = matches;
+        if (currentFilter !== 'ALL') {
+            filteredMatches = matches.filter(m => m.leagueName === currentFilter);
+        }
+
+        if (filteredMatches.length === 0) {
+            container.innerHTML = '<div class="no-matches">Keine Spiele für diesen Filter in den nächsten 7 Tagen gefunden.</div>';
+            return;
+        }
+
+        const grouped = {};
+        filteredMatches.forEach(m => {
+            if (!grouped[m.date]) grouped[m.date] = [];
+            grouped[m.date].push(m);
+        });
+
+        let html = '';
+        for (const [date, dayMatches] of Object.entries(grouped)) {
+            const weekday = getWeekday(date);
+            html += `<div class="day-group">
+                <div class="day-header">📅 ${weekday}, ${formatDateReadable(date)} (${dayMatches.length} Spiele)</div>`;
+            
+            dayMatches.forEach(m => {
+                html += `
+                    <div class="match-card ${m.matchClass}">
+                        <div>
+                            <div class="league-name">${m.leagueName}</div>
+                            <div class="teams">
+                                <span class="team"><img src="${m.homeLogo}" alt="">${m.homeTeam}</span>
+                                <span style="color: var(--text-muted); margin: 0 5px;">vs</span>
+                                <span class="team"><img src="${m.awayLogo}" alt="">${m.awayTeam}</span>
+                            </div>
+                        </div>
+                        <div class="match-time">${m.time} Uhr</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
+    }
+</script>
+
+</body>
+</html>
