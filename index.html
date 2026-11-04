@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="7-Tage-Vorschau">
     <meta name="mobile-web-app-capable" content="yes">
     
-    <!-- Generiertes Kalender-Icon als Inline-Data-URI (erspart eine extra Bilddatei) -->
+    <!-- Kalender-Icon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e293b'/><rect x='10' y='25' width='80' height='65' rx='10' fill='%233b82f6'/><path d='M10 35h80v15H10z' fill='%231e293b'/><circle cx='30' cy='18' r='6' fill='%2394a3b8'/><circle cx='70' cy='18' r='6' fill='%2394a3b8'/><text x='50' y='75' font-size='40' font-weight='bold' fill='white' text-anchor='middle'>📅</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231e293b'/><rect x='10' y='25' width='80' height='65' rx='10' fill='%233b82f6'/><text x='50' y='75' font-size='40' font-weight='bold' fill='white' text-anchor='middle'>📅</text></svg>">
 
@@ -52,35 +52,39 @@
             font-size: 0.9rem;
             margin: 0;
         }
-        .controls {
+        .top-bar {
             display: flex;
-            justify-content: center;
-            margin-bottom: 30px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            background: var(--card-bg);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
-        button {
+        .status-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .refresh-btn {
             background-color: var(--accent-color);
             color: white;
             border: none;
-            padding: 14px 28px;
-            font-size: 1rem;
+            padding: 8px 14px;
+            font-size: 0.85rem;
             font-weight: bold;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             transition: background 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
-        button:hover {
+        .refresh-btn:hover {
             background-color: var(--accent-hover);
-        }
-        button:disabled {
-            background-color: var(--border-color);
-            cursor: not-allowed;
-            box-shadow: none;
         }
         #loading {
             text-align: center;
             color: var(--text-muted);
-            margin: 20px 0;
+            margin: 40px 0;
+            font-size: 1.1rem;
             display: none;
         }
         .day-group {
@@ -145,7 +149,7 @@
         }
     </style>
 </head>
-<body>
+<body onload="initApp()">
 
 <div class="container">
     <header>
@@ -153,11 +157,12 @@
         <p class="subtitle" id="date-range-label">Lade Zeitraum...</p>
     </header>
 
-    <div class="controls">
-        <button id="load-btn" onclick="loadWeeklyMatches()">Wochen-Vorschau laden</button>
+    <div class="top-bar">
+        <div class="status-info" id="cache-status">Status: Prüfe Speicher...</div>
+        <button class="refresh-btn" onclick="loadWeeklyMatches(true)">Aktualisieren 🔄</button>
     </div>
 
-    <div id="loading">Lade Spiele aller Ligen... Bitte warten.</div>
+    <div id="loading">Lade Spiele der nächsten 7 Tage... Bitte warten. ⏳</div>
     <div id="matches-container"></div>
 </div>
 
@@ -207,14 +212,28 @@
         return GERMAN_TEAMS.some(germanTeam => teamName.toLowerCase().includes(germanTeam.toLowerCase()));
     }
 
-    async function loadWeeklyMatches() {
-        const btn = document.getElementById('load-btn');
+    // Beim Start prüfen, ob Daten im Speicher liegen
+    function initApp() {
+        const cachedData = localStorage.getItem('football_weekly_cache');
+        const cachedTime = localStorage.getItem('football_weekly_time');
+        
+        // Wenn Daten da sind, direkt anzeigen (schont die API komplett)
+        if (cachedData && cachedTime) {
+            const matches = JSON.parse(cachedData);
+            document.getElementById('cache-status').innerText = `Stand: ${cachedTime} (aus Speicher)`;
+            renderMatches(matches);
+        } else {
+            // Ansonsten einmalig automatisch laden
+            loadWeeklyMatches(false);
+        }
+    }
+
+    async function loadWeeklyMatches(forced = false) {
         const loading = document.getElementById('loading');
         const container = document.getElementById('matches-container');
 
-        btn.disabled = true;
         loading.style.display = 'block';
-        container.innerHTML = '';
+        if (forced) container.innerHTML = '';
 
         let allMatches = [];
         const nowTimestamp = new Date().getTime();
@@ -224,7 +243,7 @@
                 const url = `https://v3.football.api-sports.io/fixtures?league=${league.id}&season=${SEASON}&from=${fromDateStr}&to=${toDateStr}`;
                 
                 try {
-                    const response = labelFetch = await fetch(url, {
+                    const response = await fetch(url, {
                         headers: { "x-apisports-key": API_KEY }
                     });
                     const data = await response.json();
@@ -262,13 +281,19 @@
             }
 
             allMatches.sort((a, b) => a.timestamp - b.timestamp);
+
+            // Im localStorage des Handys abspeichern
+            const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+            localStorage.setItem('football_weekly_cache', JSON.stringify(allMatches));
+            localStorage.setItem('football_weekly_time', nowTimeStr);
+            
+            document.getElementById('cache-status').innerText = `Stand: ${nowTimeStr} (Aktualisiert)`;
             renderMatches(allMatches);
 
         } catch (error) {
             console.error("Fehler beim Laden:", error);
             container.innerHTML = '<div class="no-matches">Fehler beim Laden der Daten.</div>';
         } finally {
-            btn.disabled = false;
             loading.style.display = 'none';
         }
     }
@@ -301,7 +326,7 @@
                             <div class="teams">
                                 <span class="team"><img src="${m.homeLogo}" alt="">${m.homeTeam}</span>
                                 <span style="color: var(--text-muted); margin: 0 5px;">vs</span>
-                                <span class="team"><img src="${m.awayLogo}" alt="">${m.awayTeam}</span>
+                                <span class="team"><img src="${m.homeLogo ? m.awayLogo : ''}" alt="">${m.awayTeam}</span>
                             </div>
                         </div>
                         <div class="match-time">${m.time} Uhr</div>
