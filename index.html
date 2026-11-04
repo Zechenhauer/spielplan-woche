@@ -170,10 +170,13 @@
     const API_KEY = "297322363f3bf16e1304cfb933a0c8d5";
     const SEASON = "2026";
     
+    // Alle Ligen inklusive DFB-Pokal und Oberliga Niederrhein (ID 751)
     const LEAGUES = [
         { id: 78, name: "1. Bundesliga", isGerman: true },
         { id: 79, name: "2. Bundesliga", isGerman: true },
         { id: 80, name: "3. Liga", isGerman: true },
+        { id: 81, name: "DFB-Pokal", isGerman: true },
+        { id: 751, name: "Oberliga Niederrhein", isGerman: true },
         { id: 2,  name: "Champions League", isGerman: false },
         { id: 3,  name: "Europa League", isGerman: false },
         { id: 848, name: "Conference League", isGerman: false },
@@ -212,18 +215,15 @@
         return GERMAN_TEAMS.some(germanTeam => teamName.toLowerCase().includes(germanTeam.toLowerCase()));
     }
 
-    // Beim Start prüfen, ob Daten im Speicher liegen
     function initApp() {
         const cachedData = localStorage.getItem('football_weekly_cache');
         const cachedTime = localStorage.getItem('football_weekly_time');
         
-        // Wenn Daten da sind, direkt anzeigen (schont die API komplett)
         if (cachedData && cachedTime) {
             const matches = JSON.parse(cachedData);
             document.getElementById('cache-status').innerText = `Stand: ${cachedTime} (aus Speicher)`;
             renderMatches(matches);
         } else {
-            // Ansonsten einmalig automatisch laden
             loadWeeklyMatches(false);
         }
     }
@@ -282,7 +282,6 @@
 
             allMatches.sort((a, b) => a.timestamp - b.timestamp);
 
-            // Im localStorage des Handys abspeichern
             const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
             localStorage.setItem('football_weekly_cache', JSON.stringify(allMatches));
             localStorage.setItem('football_weekly_time', nowTimeStr);
@@ -326,7 +325,7 @@
                             <div class="teams">
                                 <span class="team"><img src="${m.homeLogo}" alt="">${m.homeTeam}</span>
                                 <span style="color: var(--text-muted); margin: 0 5px;">vs</span>
-                                <span class="team"><img src="${m.homeLogo ? m.awayLogo : ''}" alt="">${m.awayTeam}</span>
+                                <span class="team"><img src="${m.awayLogo}" alt="">${m.awayTeam}</span>
                             </div>
                         </div>
                         <div class="match-time">${m.time} Uhr</div>
